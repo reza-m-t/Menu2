@@ -8,29 +8,69 @@ def add_selection():
     global step_number
     selected_mode = mode_var.get()
     selected_submode = submode_var.get()
-    if selected_mode and selected_submode:
-        selection = f"{selected_mode} - {selected_submode}"
-    elif selected_mode:
-        selection = selected_mode
-    else:
-        selection = "No selection"
-    
-    # Insert into table
-    table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode))
-    step_number += 1  # Increment the step number
+    main_parameter_value = main_parameter_entry.get()
+
+    # Check if inputs are valid
+    if selected_mode and (selected_submode or selected_mode == "Rest"):
+        if selected_mode != "Rest" and not main_parameter_value:
+            return  # Do not add if there's no input for main parameter when required
+        
+        # Insert into table
+        table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode, main_parameter_value))
+        step_number += 1  # Increment the step number
+        main_parameter_entry.delete(0, tk.END)  # Clear the entry after adding
+
+    # Reset the form
+    mode_var.set("Select Mode")
+    submode_var.set("Select Submode")
+    main_parameter_label.config(text="Parameter:")
+    main_parameter_entry.config(state=tk.DISABLED)
+    check_add_button_state()
 
 def update_submenu(mode):
     submenu.delete(0, tk.END)  # Clear previous submenu items
     if mode == "Charge":
-        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC")
-        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV")
+        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC", command=update_main_parameter_entry)
+        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV", command=update_main_parameter_entry)
     elif mode == "DisCharge":
-        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC")
-        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV")
-        submenu.add_radiobutton(label="CL", variable=submode_var, value="CL")
-        submenu.add_radiobutton(label="CP", variable=submode_var, value="CP")
+        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC", command=update_main_parameter_entry)
+        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV", command=update_main_parameter_entry)
+        submenu.add_radiobutton(label="CL", variable=submode_var, value="CL", command=update_main_parameter_entry)
+        submenu.add_radiobutton(label="CP", variable=submode_var, value="CP", command=update_main_parameter_entry)
     elif mode == "Rest":
-        submenu.add_radiobutton(label="Rest", variable=submode_var, value="Rest")
+        submenu.add_radiobutton(label="Rest", variable=submode_var, value="Rest", command=update_main_parameter_entry)
+    
+    # Ensure the add button is checked every time submenu is updated
+    check_add_button_state()
+
+def update_main_parameter_entry():
+    selected_mode = mode_var.get()
+    selected_submode = submode_var.get()
+    
+    if selected_mode == "Rest":
+        main_parameter_label.config(text="No input required")
+        main_parameter_entry.config(state=tk.DISABLED)
+    elif selected_mode == "Charge" and selected_submode == "CC":
+        main_parameter_label.config(text="Current (mA):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    elif selected_mode == "Charge" and selected_submode == "CV":
+        main_parameter_label.config(text="Voltage (mV):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    elif selected_mode == "DisCharge" and selected_submode == "CC":
+        main_parameter_label.config(text="Current (mA):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    elif selected_mode == "DisCharge" and selected_submode == "CV":
+        main_parameter_label.config(text="Voltage (mV):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    elif selected_mode == "DisCharge" and selected_submode == "CL":
+        main_parameter_label.config(text="Resistance (ohm):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    elif selected_mode == "DisCharge" and selected_submode == "CP":
+        main_parameter_label.config(text="Power (Watt):")
+        main_parameter_entry.config(state=tk.NORMAL)
+    
+    # Re-check the add button state when the main parameter entry is updated
+    check_add_button_state()
 
 def on_mode_select(mode):
     mode_var.set(mode)
@@ -38,9 +78,12 @@ def on_mode_select(mode):
     check_add_button_state()
 
 def check_add_button_state():
-    # Enable Add button only if both mode and submode are selected
+    # Enable Add button only if both mode and submode are selected and main parameter is valid
     if mode_var.get() and (submode_var.get() or mode_var.get() == "Rest"):
-        add_button.config(state=tk.NORMAL)
+        if mode_var.get() == "Rest" or main_parameter_entry.get():
+            add_button.config(state=tk.NORMAL)
+        else:
+            add_button.config(state=tk.DISABLED)
     else:
         add_button.config(state=tk.DISABLED)
 
@@ -54,7 +97,7 @@ def remove_selection():
         # Re-number the steps
         for index, item in enumerate(table.get_children(), start=1):
             current_values = table.item(item, 'values')
-            table.item(item, values=(f"Step {index}", current_values[1], current_values[2]))
+            table.item(item, values=(f"Step {index}", current_values[1], current_values[2], current_values[3]))
         
         # Adjust the step number for new additions
         step_number = len(table.get_children()) + 1
@@ -64,7 +107,7 @@ def edit_selection():
     if selected_item:
         # Retrieve the current values
         item = table.item(selected_item)
-        current_step, current_mode, current_submode = item['values']
+        current_step, current_mode, current_submode, current_main_parameter = item['values']
         
         # Create a new top-level window for editing
         edit_window = tk.Toplevel(root)
@@ -73,6 +116,7 @@ def edit_selection():
         # Mode variable for editing
         edit_mode_var = tk.StringVar(value=current_mode)
         edit_submode_var = tk.StringVar(value=current_submode)
+        edit_main_parameter_var = tk.StringVar(value=current_main_parameter)
 
         # Create a menu for modes
         mode_menu = tk.OptionMenu(edit_window, edit_mode_var, "Charge", "DisCharge", "Rest")
@@ -81,6 +125,12 @@ def edit_selection():
         # Create a dropdown menu for submodes
         submode_menu = tk.OptionMenu(edit_window, edit_submode_var, "")
         submode_menu.pack(padx=10, pady=5)
+
+        # Create an entry for main parameter
+        main_parameter_label_edit = tk.Label(edit_window, text="Parameter:")
+        main_parameter_label_edit.pack(padx=10, pady=5)
+        main_parameter_entry_edit = tk.Entry(edit_window, textvariable=edit_main_parameter_var)
+        main_parameter_entry_edit.pack(padx=10, pady=5)
 
         # Update the submenu based on selected mode
         def update_edit_submenu(mode):
@@ -107,8 +157,9 @@ def edit_selection():
         def save_changes():
             new_mode = edit_mode_var.get()
             new_submode = edit_submode_var.get()
+            new_main_parameter = edit_main_parameter_var.get()
             if new_mode and new_submode:
-                table.item(selected_item, values=(current_step, new_mode, new_submode))
+                table.item(selected_item, values=(current_step, new_mode, new_submode, new_main_parameter))
             edit_window.destroy()  # Close the edit window
 
         save_button = tk.Button(edit_window, text="Save", command=save_changes)
@@ -141,25 +192,34 @@ menubar.add_cascade(label="Select Mode", menu=main_menu)
 menubar.add_cascade(label="Submode", menu=submenu)  # Add submenu to the menu bar
 root.config(menu=menubar)
 
-# Create a table (Treeview) to display the step, mode, and submode
-columns = ('Step', 'Mode', 'Submode')
+# Create a table (Treeview) to display the step, mode, submode, and main parameter
+columns = ('Step', 'Mode', 'Submode', 'Main Parameter')
 table = ttk.Treeview(root, columns=columns, show='headings')
 table.heading('Step', text='Step')
 table.heading('Mode', text='Mode')
 table.heading('Submode', text='Submode')
+table.heading('Main Parameter', text='Main Parameter')
 table.grid(row=0, column=0, columnspan=4, padx=5, pady=5)
+
+# Create a label and entry for the main parameter
+main_parameter_label = tk.Label(root, text="Parameter:")
+main_parameter_label.grid(row=1, column=0, padx=5, pady=5)
+
+main_parameter_entry = tk.Entry(root, state=tk.DISABLED)
+main_parameter_entry.grid(row=1, column=1, padx=5, pady=5)
+main_parameter_entry.bind("<KeyRelease>", lambda event: check_add_button_state())  # Check button state on entry change
 
 # Create "Remove" button
 remove_button = tk.Button(root, text="Remove", command=remove_selection)
-remove_button.grid(row=1, column=2, padx=5, pady=5)
+remove_button.grid(row=2, column=2, padx=5, pady=5)
 
 # Create "Edit" button
 edit_button = tk.Button(root, text="Edit", command=edit_selection)
-edit_button.grid(row=1, column=3, padx=5, pady=5)
+edit_button.grid(row=2, column=3, padx=5, pady=5)
 
 # Create "Add" button and set it to be initially disabled
 add_button = tk.Button(root, text="Add", command=add_selection, state=tk.DISABLED)
-add_button.grid(row=1, column=1, padx=5, pady=5)
+add_button.grid(row=2, column=1, padx=5, pady=5)
 
 # Run the application
 root.mainloop()
