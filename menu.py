@@ -35,6 +35,14 @@ def update_submenu(mode):
 def on_mode_select(mode):
     mode_var.set(mode)
     update_submenu(mode)
+    check_add_button_state()
+
+def check_add_button_state():
+    # Enable Add button only if both mode and submode are selected
+    if mode_var.get() and (submode_var.get() or mode_var.get() == "Rest"):
+        add_button.config(state=tk.NORMAL)
+    else:
+        add_button.config(state=tk.DISABLED)
 
 def remove_selection():
     global step_number
@@ -112,9 +120,11 @@ root.title("Menu Example")
 
 mode_var = tk.StringVar()
 mode_var.set("Select Mode")
+mode_var.trace("w", lambda *args: check_add_button_state())
 
 submode_var = tk.StringVar()
 submode_var.set("Select Submode")
+submode_var.trace("w", lambda *args: check_add_button_state())
 
 # Create main menu
 main_menu = tk.Menu(root, tearoff=0)
@@ -147,8 +157,8 @@ remove_button.grid(row=1, column=2, padx=5, pady=5)
 edit_button = tk.Button(root, text="Edit", command=edit_selection)
 edit_button.grid(row=1, column=3, padx=5, pady=5)
 
-# Create "Add" button
-add_button = tk.Button(root, text="Add", command=add_selection)
+# Create "Add" button and set it to be initially disabled
+add_button = tk.Button(root, text="Add", command=add_selection, state=tk.DISABLED)
 add_button.grid(row=1, column=1, padx=5, pady=5)
 
 # Run the application
