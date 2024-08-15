@@ -47,7 +47,9 @@ def remove_selection():
         for index, item in enumerate(table.get_children(), start=1):
             current_values = table.item(item, 'values')
             table.item(item, values=(f"Step {index}", current_values[1], current_values[2]))
-        step_number = max(index + 1, step_number)  # Adjust the next step number
+        
+        # Adjust the step number for new additions
+        step_number = len(table.get_children()) + 1
 
 def edit_selection():
     selected_item = table.selection()
