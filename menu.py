@@ -15,9 +15,6 @@ def add_selection():
     else:
         selection = "No selection"
     
-    # Insert into listbox
-    listbox.insert(tk.END, selection)
-
     # Insert into table
     table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode))
     step_number += 1  # Increment the step number
@@ -132,30 +129,25 @@ menubar.add_cascade(label="Select Mode", menu=main_menu)
 menubar.add_cascade(label="Submode", menu=submenu)  # Add submenu to the menu bar
 root.config(menu=menubar)
 
-# Create a listbox to display the selections
-listbox = tk.Listbox(root)
-listbox.grid(row=0, column=0, columnspan=4, padx=5, pady=5)
-
-# Create "Add" button
-add_button = tk.Button(root, text="Add", command=add_selection)
-add_button.grid(row=1, column=3, padx=5, pady=5)
-
 # Create a table (Treeview) to display the step, mode, and submode
 columns = ('Step', 'Mode', 'Submode')
 table = ttk.Treeview(root, columns=columns, show='headings')
 table.heading('Step', text='Step')
 table.heading('Mode', text='Mode')
 table.heading('Submode', text='Submode')
-table.grid(row=2, column=0, columnspan=4, padx=5, pady=5)
+table.grid(row=0, column=0, columnspan=4, padx=5, pady=5)
 
 # Create "Remove" button
 remove_button = tk.Button(root, text="Remove", command=remove_selection)
-remove_button.grid(row=3, column=2, padx=5, pady=5)
+remove_button.grid(row=1, column=2, padx=5, pady=5)
 
 # Create "Edit" button
 edit_button = tk.Button(root, text="Edit", command=edit_selection)
-edit_button.grid(row=3, column=3, padx=5, pady=5)
+edit_button.grid(row=1, column=3, padx=5, pady=5)
+
+# Create "Add" button
+add_button = tk.Button(root, text="Add", command=add_selection)
+add_button.grid(row=1, column=1, padx=5, pady=5)
 
 # Run the application
 root.mainloop()
-# finis
