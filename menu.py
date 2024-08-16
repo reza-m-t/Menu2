@@ -29,11 +29,20 @@ def add_selection():
             termination_params.append("No Termination Parameters")
 
         termination_values = ", ".join(termination_params)
-        
-        # Insert into table
-        table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode, main_parameter_value, termination_values))
-        step_number += 1  # Increment the step number
-        main_parameter_entry.delete(0, tk.END)  # Clear the entry after adding
+
+        if edit_mode.get():
+            # Edit existing row
+            selected_item = table.selection()[0]
+            table.item(selected_item, values=(f"Step {table.index(selected_item) + 1}", selected_mode, selected_submode, main_parameter_value, termination_values))
+            edit_mode.set(False)
+            add_button.config(text="Add")
+        else:
+            # Insert into table
+            table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode, main_parameter_value, termination_values))
+            step_number += 1  # Increment the step number
+
+        # Clear input fields after adding
+        main_parameter_entry.delete(0, tk.END)
         termination1_entry.delete(0, tk.END)
         termination2_entry.delete(0, tk.END)
         termination3_entry.delete(0, tk.END)
@@ -47,22 +56,24 @@ def add_selection():
     check_add_button_state()
 
 def update_submenu(mode):
-    submenu.delete(0, tk.END)  # Clear previous submenu items
+    submodes = []
     if mode == "Charge":
-        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC", command=update_main_parameter_entry)
-        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV", command=update_main_parameter_entry)
+        submodes = ["CC", "CV"]
     elif mode == "DisCharge":
-        submenu.add_radiobutton(label="CC", variable=submode_var, value="CC", command=update_main_parameter_entry)
-        submenu.add_radiobutton(label="CV", variable=submode_var, value="CV", command=update_main_parameter_entry)
-        submenu.add_radiobutton(label="CL", variable=submode_var, value="CL", command=update_main_parameter_entry)
-        submenu.add_radiobutton(label="CP", variable=submode_var, value="CP", command=update_main_parameter_entry)
+        submodes = ["CC", "CV", "CL", "CP"]
     elif mode == "Rest":
-        submenu.add_radiobutton(label="Rest", variable=submode_var, value="Rest", command=update_main_parameter_entry)
+        submodes = ["Rest"]
     
-    # Ensure the add button is checked every time submenu is updated
+    submode_menu['menu'].delete(0, 'end')  # Clear previous submenu items
+    
+    for submode in submodes:
+        submode_menu['menu'].add_command(label=submode, command=tk._setit(submode_var, submode, update_main_parameter_entry))
+    
+    submode_var.set(submodes[0])  # Set default selection
+    update_main_parameter_entry()
     check_add_button_state()
 
-def update_main_parameter_entry():
+def update_main_parameter_entry(event=None):
     selected_mode = mode_var.get()
     selected_submode = submode_var.get()
     
@@ -88,9 +99,8 @@ def update_main_parameter_entry():
         main_parameter_label.config(text="Power (Watt):")
         main_parameter_entry.config(state=tk.NORMAL)
     
-    # Update termination parameters based on submode
     update_termination_parameters(selected_mode, selected_submode)
-    termination_frame.grid(row=3, column=0, columnspan=4, padx=5, pady=5)  # Show termination frame
+    termination_frame.grid(row=3, column=0, columnspan=4, padx=5, pady=5)
     check_add_button_state()
 
 def update_termination_parameters(mode, submode):
@@ -146,14 +156,24 @@ def on_mode_select(mode):
     check_add_button_state()
 
 def check_add_button_state():
-    # Enable Add button only if both mode and submode are selected and main parameter is valid
-    if mode_var.get() and (submode_var.get() or mode_var.get() == "Rest"):
-        if mode_var.get() == "Rest" or main_parameter_entry.get():
+    selected_mode = mode_var.get()
+    selected_submode = submode_var.get()
+    main_parameter_value = main_parameter_entry.get()
+
+    # بررسی اینکه آیا حالت انتخاب شده یا نه
+    if selected_mode and (selected_submode or selected_mode == "Rest"):
+        # اگر حالت Rest است، نیازی به بررسی مقدار ورودی اصلی نیست
+        if selected_mode == "Rest":
             add_button.config(state=tk.NORMAL)
         else:
-            add_button.config(state=tk.DISABLED)
+            # اگر حالت Rest نیست، مطمئن می‌شویم که مقدار ورودی اصلی تکمیل شده باشد
+            if main_parameter_value:
+                add_button.config(state=tk.NORMAL)
+            else:
+                add_button.config(state=tk.DISABLED)
     else:
         add_button.config(state=tk.DISABLED)
+
 
 def remove_selection():
     global step_number
@@ -170,88 +190,136 @@ def remove_selection():
         # Adjust the step number for new additions
         step_number = len(table.get_children()) + 1
 
+def edit_selection():
+    selected_item = table.selection()
+    if selected_item:
+        # Get current values from the selected row
+        current_values = table.item(selected_item, 'values')
+        
+        # Set the mode and submode
+        mode_var.set(current_values[1])
+        update_submenu(current_values[1])  # Update the submenu based on the mode
+        submode_var.set(current_values[2])
+        
+        # Set the main parameter if not in Rest mode
+        if current_values[1] != "Rest":
+            main_parameter_entry.delete(0, tk.END)
+            main_parameter_entry.insert(0, current_values[3])
+            update_main_parameter_entry()  # Update the main parameter entry
+        
+        # Set the termination parameters
+        termination_params = current_values[4].split(", ")
+        termination1_var.set("")
+        termination2_var.set("")
+        termination3_var.set("")
+        termination1_entry.delete(0, tk.END)
+        termination2_entry.delete(0, tk.END)
+        termination3_entry.delete(0, tk.END)
+        
+        if termination_params:
+            termination1_entry.insert(0, termination_params[0].split(" = ")[1])
+            if len(termination_params) > 1:
+                termination2_entry.insert(0, termination_params[1].split(" = ")[1])
+            if len(termination_params) > 2:
+                termination3_entry.insert(0, termination_params[2].split(" = ")[1])
+
+        # Enable edit mode
+        edit_mode.set(True)
+        add_button.config(text="Save Changes")
+
+def reset_form():
+    mode_var.set("Select Mode")
+    submode_var.set("Select Submode")
+    main_parameter_label.config(text="Parameter:")
+    main_parameter_entry.config(state=tk.DISABLED)
+    main_parameter_entry.delete(0, tk.END)
+    termination1_var.set("")
+    termination2_var.set("")
+    termination3_var.set("")
+    termination1_entry.delete(0, tk.END)
+    termination2_entry.delete(0, tk.END)
+    termination3_entry.delete(0, tk.END)
+    termination_frame.grid_remove()
+    edit_mode.set(False)
+    add_button.config(text="Add")
+    check_add_button_state()
+
 # Create the main application window
 root = tk.Tk()
-root.title("Menu Example")
+root.title("Battery Test Step Manager")
 
-mode_var = tk.StringVar()
-mode_var.set("Select Mode")
-mode_var.trace("w", lambda *args: check_add_button_state())
+# Mode selection
+mode_var = tk.StringVar(value="Select Mode")
+submode_var = tk.StringVar(value="Select Submode")
+edit_mode = tk.BooleanVar(value=False)  # Track if we are in edit mode
 
-submode_var = tk.StringVar()
-submode_var.set("Select Submode")
-submode_var.trace("w", lambda *args: check_add_button_state())
+modes = ["Charge", "DisCharge", "Rest"]
 
-# Create main menu
-main_menu = tk.Menu(root, tearoff=0)
-main_menu.add_radiobutton(label="Charge", variable=mode_var, value="Charge", command=lambda: on_mode_select("Charge"))
-main_menu.add_radiobutton(label="DisCharge", variable=mode_var, value="DisCharge", command=lambda: on_mode_select("DisCharge"))
-main_menu.add_radiobutton(label="Rest", variable=mode_var, value="Rest", command=lambda: on_mode_select("Rest"))
+# Replace Menubutton with OptionMenu for better compatibility and functionality
+mode_menu = tk.OptionMenu(root, mode_var, *modes, command=on_mode_select)
+mode_menu.grid(row=0, column=0, padx=5, pady=5)
 
-# Create submenu
-submenu = tk.Menu(root, tearoff=0)
+# Submode menu, updated dynamically based on mode selection
+submode_menu = tk.OptionMenu(root, submode_var, "")
+submode_menu.grid(row=0, column=1, padx=5, pady=5)
 
-# Create a menu bar and attach the main menu and submenu to it
-menubar = tk.Menu(root)
-menubar.add_cascade(label="Select Mode", menu=main_menu)
-menubar.add_cascade(label="Submode", menu=submenu)  # Add submenu to the menu bar
-root.config(menu=menubar)
-
-# Create a table (Treeview) to display the step, mode, submode, main parameter, and termination parameters
-columns = ('Step', 'Mode', 'Submode', 'Main Parameter', 'Termination Parameters')
-table = ttk.Treeview(root, columns=columns, show='headings')
-table.heading('Step', text='Step')
-table.heading('Mode', text='Mode')
-table.heading('Submode', text='Submode')
-table.heading('Main Parameter', text='Main Parameter')
-table.heading('Termination Parameters', text='Termination Parameters')
-table.grid(row=0, column=0, columnspan=4, padx=5, pady=5)
-
-# Create a label and entry for the main parameter
+# Main parameter input
 main_parameter_label = tk.Label(root, text="Parameter:")
 main_parameter_label.grid(row=1, column=0, padx=5, pady=5)
-
 main_parameter_entry = tk.Entry(root, state=tk.DISABLED)
 main_parameter_entry.grid(row=1, column=1, padx=5, pady=5)
-main_parameter_entry.bind("<KeyRelease>", lambda event: check_add_button_state())  # Check button state on entry change
 
-# Termination Parameters Section
+# Termination parameters
 termination_frame = tk.Frame(root)
-termination_frame.grid(row=3, column=0, columnspan=4, padx=5, pady=5)
-termination_frame.grid_remove()  # Initially hidden
-
 termination1_var = tk.StringVar()
 termination2_var = tk.StringVar()
 termination3_var = tk.StringVar()
 
-termination1_label = tk.Label(termination_frame, text="Termination 1")
-termination1_label.grid(row=0, column=0, padx=5, pady=5)
-termination1_entry = tk.Entry(termination_frame)
-termination1_entry.grid(row=0, column=1, padx=5, pady=5)
-termination1_unit = tk.Label(termination_frame, text="")
-termination1_unit.grid(row=0, column=2, padx=5, pady=5)
+termination1_label = tk.Label(termination_frame, text="Termination 1:")
+termination1_label.grid(row=0, column=0)
+termination1_entry = tk.Entry(termination_frame, state=tk.DISABLED)
+termination1_entry.grid(row=0, column=1)
+termination1_unit = tk.Label(termination_frame, text="Unit")
+termination1_unit.grid(row=0, column=2)
 
-termination2_label = tk.Label(termination_frame, text="Termination 2")
-termination2_label.grid(row=1, column=0, padx=5, pady=5)
-termination2_entry = tk.Entry(termination_frame)
-termination2_entry.grid(row=1, column=1, padx=5, pady=5)
-termination2_unit = tk.Label(termination_frame, text="")
-termination2_unit.grid(row=1, column=2, padx=5, pady=5)
+termination2_label = tk.Label(termination_frame, text="Termination 2:")
+termination2_label.grid(row=1, column=0)
+termination2_entry = tk.Entry(termination_frame, state=tk.DISABLED)
+termination2_entry.grid(row=1, column=1)
+termination2_unit = tk.Label(termination_frame, text="Unit")
+termination2_unit.grid(row=1, column=2)
 
-termination3_label = tk.Label(termination_frame, text="Termination 3")
-termination3_label.grid(row=2, column=0, padx=5, pady=5)
-termination3_entry = tk.Entry(termination_frame)
-termination3_entry.grid(row=2, column=1, padx=5, pady=5)
-termination3_unit = tk.Label(termination_frame, text="")
-termination3_unit.grid(row=2, column=2, padx=5, pady=5)
+termination3_label = tk.Label(termination_frame, text="Termination 3:")
+termination3_label.grid(row=2, column=0)
+termination3_entry = tk.Entry(termination_frame, state=tk.DISABLED)
+termination3_entry.grid(row=2, column=1)
+termination3_unit = tk.Label(termination_frame, text="Unit")
+termination3_unit.grid(row=2, column=2)
 
-# Create "Remove" button
+# Table to display added selections
+columns = ("Step", "Mode", "Submode", "Parameter", "Termination")
+table = ttk.Treeview(root, columns=columns, show="headings", height=10)
+for col in columns:
+    table.heading(col, text=col)
+table.grid(row=4, column=0, columnspan=4, padx=5, pady=5)
+
+# Scrollbar for the table
+scrollbar = ttk.Scrollbar(root, orient="vertical", command=table.yview)
+table.configure(yscrollcommand=scrollbar.set)
+scrollbar.grid(row=4, column=4, sticky="ns")
+
+# Buttons
+add_button = tk.Button(root, text="Add", state=tk.DISABLED, command=add_selection)
+add_button.grid(row=5, column=0, padx=5, pady=5)
+
+edit_button = tk.Button(root, text="Edit", command=edit_selection)
+edit_button.grid(row=5, column=1, padx=5, pady=5)
+
 remove_button = tk.Button(root, text="Remove", command=remove_selection)
-remove_button.grid(row=2, column=2, padx=5, pady=5)
+remove_button.grid(row=5, column=2, padx=5, pady=5)
 
-# Create "Add" button and set it to be initially disabled
-add_button = tk.Button(root, text="Add", command=add_selection, state=tk.DISABLED)
-add_button.grid(row=2, column=1, padx=5, pady=5)
+reset_button = tk.Button(root, text="Reset", command=reset_form)
+reset_button.grid(row=5, column=3, padx=5, pady=5)
 
-# Run the application
+# Start the application
 root.mainloop()
