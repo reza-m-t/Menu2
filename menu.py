@@ -257,7 +257,7 @@ def map_mode_submode_param(mode, submode, param, termination_list):
     submode_map = {
         "CC": {"Charge": "1", "DisCharge": "3"},
         "CV": {"Charge": "2", "DisCharge": "4"},
-        "CP": {"Charge": "5", "DisCharge": "6"},
+        "CP": "5",
         "CL": "6",
         "Rest": "7"
     }
