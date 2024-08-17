@@ -4,6 +4,9 @@ import serial
 import serial.tools.list_ports
 import time
 
+from PIL import Image, ImageTk
+
+
 # Global variable to keep track of the step number
 step_number = 1
 
@@ -118,18 +121,18 @@ def update_termination_parameters(mode, submode):
     termination_options = []
     if mode == "Charge":
         if submode == "CC":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mA")]
+            termination_options = [("Time", "min"), ("Temp", "°C"), ("Current", "mA")]
         elif submode == "CV":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Voltage (mV)", "mV")]
+            termination_options = [("Time", "min"), ("Temp", "°C"), ("Voltage", "mV")]
     elif mode == "DisCharge":
         if submode == "CC":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Voltage (mV)", "mA")]
+            termination_options = [("Time", "min"), ("Temp", "°C"), ("Voltage", "mV")]
         elif submode == "CV":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mV")]
+            termination_options = [("Time", "min"), ("Temp", "°C"), ("Current", "mA")]
         elif submode == "CL" or submode == "CP":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mA"), ("Voltage (mV)", "mV")]
+            termination_options = [("Time", "min"), ("Temp", "°C"), ("Current", "mA"), ("Voltage", "mV")]
     elif mode == "Rest":
-        termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mA")]
+        termination_options = [("Time", "min"), ("Temp", "°C"), ("Current", "mA")]
 
     if termination_options:
         termination1_label.config(text=termination_options[0][0])
@@ -267,48 +270,48 @@ def map_mode_submode_param(mode, submode, param, termination_list):
     if mode == "Charge":
         if submode == "CC":
             termination_map = {
-                "Voltage (mV)": "1",
-                "Time (min)": "2",
-                "Temp (C)": "3",
+                "Voltage": "1",
+                "Time": "2",
+                "Temp": "3",
             }
         elif submode == "CV":
             termination_map = {
-                "Current (mA)": "4",
-                "Time (min)": "5",
-                "Temp (C)": "6",
+                "Current": "4",
+                "Time": "5",
+                "Temp": "6",
             }
         elif submode == "CP":
             termination_map = {
-                "Voltage (mV)": "13",
-                "Current (mA)": "14",
-                "Time (min)": "15",
-                "Temp (C)": "16",
+                "Voltage": "13",
+                "Current": "14",
+                "Time": "15",
+                "Temp": "16",
             }
     elif mode == "DisCharge":
         if submode == "CC":
             termination_map = {
-                "Voltage (mV)": "7",
-                "Time (min)": "8",
-                "Temp (C)": "9",
+                "Voltage": "7",
+                "Time": "8",
+                "Temp": "9",
             }
         elif submode == "CV":
             termination_map = {
-                "Current (mA)": "10",
-                "Time (min)": "11",
-                "Temp (C)": "12",
+                "Current": "10",
+                "Time": "11",
+                "Temp": "12",
             }
         elif submode == "CP":
             termination_map = {
-                "Voltage (mV)": "17",
-                "Current (mA)": "18",
-                "Time (min)": "19",
-                "Temp (C)": "20",
+                "Voltage": "17",
+                "Current": "18",
+                "Time": "19",
+                "Temp": "20",
             }
     elif mode == "Rest":
         termination_map = {
-            "Current (mA)": "21",
-            "Time (min)": "22",
-            "Temp (C)": "23",
+            "Current": "21",
+            "Time": "22",
+            "Temp": "23",
         }
 
     # Mapping mode, submode, and terminations
@@ -358,6 +361,7 @@ def send_to_serial():
 def get_serial_ports():
     ports = serial.tools.list_ports.comports()
     return [port.device for port in ports]
+
 
 # Creating the main application window
 root = tk.Tk()
@@ -435,7 +439,7 @@ table_frame = ttk.Frame(root)
 table_frame.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
 
 table_columns = ("Step", "Mode", "Submode", "Main Parameter", "Termination Parameters")
-table = ttk.Treeview(table_frame, columns=table_columns, show="headings", height=10)
+table = ttk.Treeview(table_frame, columns=table_columns, show="headings", height=15,)
 table.grid(row=0, column=0, sticky="nsew")
 
 for col in table_columns:
@@ -466,4 +470,78 @@ baudrate_combobox.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 send_button = ttk.Button(serial_frame, text="Send", command=send_to_serial)
 send_button.grid(row=0, column=4, padx=5, pady=5)
 
+# Create a style object
+style = ttk.Style()
+
+# Set a theme
+style.theme_use("clam")  # You can choose from available themes like 'clam', 'default', 'alt', etc.
+
+# Customize the Treeview widget
+style.configure("Treeview",
+                background="#f0f0f0",
+                foreground="red",
+                rowheight=20,
+                fieldbackground="#f0f0f0",
+                font=('Helvetica', 12))
+
+style.map('Treeview', background=[('selected', '#347083')])
+
+# Customize the headings of the Treeview
+style.configure("Treeview.Heading",
+                font=('Helvetica', 12, 'bold'),
+                background="black",
+                foreground="yellow")
+
+# Customize buttons, labels, and entry widgets
+style.configure("TButton",
+                font=('Helvetica', 12),
+                padding=5,
+                background="#347083",
+                foreground="yellow")
+
+style.configure("TLabel",
+                font=('Helvetica', 12),
+                padding=1,
+                background="#FFD700",
+                foreground="black")
+
+style.configure("TEntry",
+                font=('Helvetica', 12),
+                padding=5,
+                background="#FFD700",
+                foreground="black")
+
+# Sequence Table
+table_frame = ttk.Frame(root)
+table_frame.grid(row=5, column=0, columnspan=4, padx=300, pady=10, sticky="nsew")
+
+table_columns = ("Step", "Mode", "Submode", "Main Parameter", "Termination Parameters")
+table = ttk.Treeview(table_frame, columns=table_columns, show="headings", height=20, style="Treeview")
+table.grid(row=0, column=0, sticky="nsew")
+
+# Set column headings and adjust column width
+table.heading("Step", text="Step")
+table.column("Step", anchor=tk.CENTER, width=80)
+
+table.heading("Mode", text="Mode")
+table.column("Mode", anchor=tk.CENTER, width=80)
+
+table.heading("Submode", text="Submode")
+table.column("Submode", anchor=tk.CENTER, width=100)
+
+table.heading("Main Parameter", text="Main Parameter")
+table.column("Main Parameter", anchor=tk.CENTER, width=200)
+
+table.heading("Termination Parameters", text="Termination Parameters")
+table.column("Termination Parameters", anchor=tk.CENTER, width=500)
+
+# Add vertical scrollbar
+scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=table.yview)
+table.configure(yscroll=scrollbar.set)
+scrollbar.grid(row=0, column=1, sticky="ns")
+
+# Add horizontal scrollbar
+h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=table.xview)
+table.configure(xscroll=h_scrollbar.set)
+h_scrollbar.grid(row=1, column=0, sticky="ew")
 root.mainloop()
