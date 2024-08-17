@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import serial
 import serial.tools.list_ports
+import time
 
 # Global variable to keep track of the step number
 step_number = 1
@@ -31,7 +32,11 @@ def add_selection():
             termination_params.append("No Termination Parameters")
 
         termination_values = ", ".join(termination_params)
-        main_parameter_unit = main_parameter_label.cget("text").split("(")[-1][:-1]  # Extract the unit
+        if selected_mode == "Rest":
+            main_parameter_value = "Rest"
+            main_parameter_unit = ""
+        else:
+            main_parameter_unit = main_parameter_label.cget("text").split("(")[-1][:-1]  # Extract the unit
 
         if edit_mode.get():
             # Edit existing row
@@ -68,6 +73,7 @@ def update_submenu(mode):
     
     submode_var.set(submodes[0])  # Set default selection
     update_main_parameter_entry()
+    main_parameter_entry.delete(0, tk.END)  # Reset main parameter entry when menu changes
     check_add_button_state()
 
 def update_main_parameter_entry(event=None):
@@ -152,25 +158,24 @@ def on_mode_select(mode):
     update_submenu(mode)
     check_add_button_state()
 
-def check_add_button_state():
+def check_add_button_state(event=None):
     selected_mode = mode_var.get()
     selected_submode = submode_var.get()
     main_parameter_value = main_parameter_entry.get()
 
-    # بررسی اینکه آیا حالت انتخاب شده یا نه
+    # Check if mode is selected
     if selected_mode and (selected_submode or selected_mode == "Rest"):
-        # اگر حالت Rest است، نیازی به بررسی مقدار ورودی اصلی نیست
+        # If mode is Rest, no need to check main parameter value
         if selected_mode == "Rest":
             add_button.config(state=tk.NORMAL)
         else:
-            # اگر حالت Rest نیست، مطمئن می‌شویم که مقدار ورودی اصلی تکمیل شده باشد
+            # If mode is not Rest, make sure main parameter value is filled
             if main_parameter_value:
                 add_button.config(state=tk.NORMAL)
             else:
                 add_button.config(state=tk.DISABLED)
     else:
         add_button.config(state=tk.DISABLED)
-
 
 def remove_selection():
     global step_number
@@ -179,21 +184,17 @@ def remove_selection():
         # Delete the selected item
         table.delete(selected_item)
         
-        # Re-number the steps
-        for index, item in enumerate(table.get_children(), start=1):
-            current_values = table.item(item, 'values')
-            table.item(item, values=(f"Step {index}", current_values[1], current_values[2], current_values[3], current_values[4]))
+        # Update step numbers
+        for i, item in enumerate(table.get_children()):
+            table.item(item, values=(f"Step {i+1}",) + table.item(item, 'values')[1:])
         
-        # Adjust the step number for new additions
-        step_number = len(table.get_children()) + 1
+        # Decrement step_number
+        step_number -= 1
 
 def edit_selection():
     selected_item = table.selection()
     if selected_item:
-        # Highlight the selected row
-        for row in table.get_children():
-            table.item(row, tags=())  # Clear tags for all rows
-        table.item(selected_item, tags=('selected',))  # Tag the selected row with 'selected'
+        table.item(selected_item, tags=('selected',))  # Remove selection highlight
 
         # Retrieve current values
         current_values = table.item(selected_item, 'values')
@@ -204,153 +205,232 @@ def edit_selection():
         main_param_with_unit = current_values[3]
         main_param_value = main_param_with_unit.split()[0] if main_param_with_unit != "No input required" else ""
 
-        # Set the form fields with current values
+        # Set the UI with selected values
         mode_var.set(current_mode)
         update_submenu(current_mode)
         submode_var.set(current_submode)
-        main_parameter_entry.delete(0, tk.END)
-        main_parameter_entry.insert(0, main_param_value)
+        update_main_parameter_entry()
 
-        # Extract termination values (if any)
-        termination_params = current_values[4].split(", ")
+        if current_mode != "Rest":
+            main_parameter_entry.delete(0, tk.END)
+            main_parameter_entry.insert(0, main_param_value)
 
-        termination_entries = [termination1_entry, termination2_entry, termination3_entry]
-        termination_vars = [termination1_var, termination2_var, termination3_var]
+        termination_values = current_values[4].split(", ")
+        for termination_value in termination_values:
+            key_value = termination_value.split(" = ")
+            if key_value[0] == termination1_var.get():
+                termination1_entry.delete(0, tk.END)
+                termination1_entry.insert(0, key_value[1])
+            elif key_value[0] == termination2_var.get():
+                termination2_entry.delete(0, tk.END)
+                termination2_entry.insert(0, key_value[1])
+            elif key_value[0] == termination3_var.get():
+                termination3_entry.delete(0, tk.END)
+                termination3_entry.insert(0, key_value[1])
 
-        for i, param in enumerate(termination_params):
-            param_parts = param.split(" = ")
-            if len(param_parts) == 2 and i < 3:
-                termination_vars[i].set(param_parts[0])
-                termination_entries[i].delete(0, tk.END)
-                termination_entries[i].insert(0, param_parts[1])
-
-        # Set edit mode
+        # Enter edit mode
         edit_mode.set(True)
         add_button.config(text="Save")
+        check_add_button_state()
 
-def clear_table():
+def reset_form():
     global step_number
-    table.delete(*table.get_children())
+    mode_var.set("")
+    submode_var.set("")
+    main_parameter_entry.delete(0, tk.END)
+    termination1_entry.delete(0, tk.END)
+    termination2_entry.delete(0, tk.END)
+    termination3_entry.delete(0, tk.END)
     step_number = 1
+    table.delete(*table.get_children())
     check_add_button_state()
 
-def connect_serial():
-    ports = serial.tools.list_ports.comports()
-    serial_port = None
-    for port in ports:
-        if "USB" in port.description or "UART" in port.description:
-            serial_port = port.device
-            break
-    
-    if serial_port:
+def map_mode_submode_param(mode, submode, param, termination_list):
+    mode_map = {
+        "Charge": "1",
+        "DisCharge": "2",
+        "Rest": "3"
+    }
+    submode_map = {
+        "CC": {"Charge": "1", "DisCharge": "3"},
+        "CV": {"Charge": "2", "DisCharge": "4"},
+        "CP": "5",
+        "CL": "6",
+        "Rest": "7"
+    }
+    param_map = {
+        "Voltage": "1",
+        "Time": "2",
+        "Temp": "3",
+        "Current": "4",
+        "Resistance": "17",
+        "Power": "13",
+    }
+    termination_map = {
+        "Time (min)": "2",
+        "Temp (C)": "3",
+        "Current (mA)": "4",
+        "Voltage (mV)": "1",
+        "Resistance (ohm)": "17",
+        "Power (Watt)": "13",
+    }
+
+    # Map mode
+    mode_code = mode_map.get(mode, "0")
+
+    # Map submode based on mode
+    submode_code = submode_map.get(submode, {}).get(mode, submode_map.get(submode, "0"))
+
+    # Map main parameter based on the label
+    param_label = main_parameter_label.cget("text").split()[0]  # Get the text before the "("
+    param_code = param_map.get(param_label, "0")
+
+    # Map termination parameters
+    termination_codes = [termination_map.get(term.split(" = ")[0], "0") for term in termination_list]
+
+    return mode_code, submode_code, param_code, termination_codes
+
+
+def send_to_serial():
+    selected_port = port_combobox.get()
+    baud_rate = baudrate_var.get()
+
+    if selected_port and baud_rate:
         try:
-            ser = serial.Serial(serial_port, 9600)
-            return ser
-        except serial.SerialException:
-            return None
+            ser = serial.Serial(selected_port, baud_rate)
+            time.sleep(2)  # Give some time for the connection to establish
 
-def send_data_to_serial(data):
-    ser = connect_serial()
-    if ser:
-        ser.write(data.encode('utf-8'))
-        ser.close()
-    else:
-        print("Serial connection failed")
+            for child in table.get_children():
+                values = table.item(child, 'values')
+                mode = values[1]
+                submode = values[2]
+                parameter = values[3].split()[0]  # Take only the numeric value
+                terminations = values[4].split(", ")
 
-def send_table_data():
-    table_data = []
-    for row in table.get_children():
-        row_values = table.item(row, 'values')
-        step, mode, submode, main_param, terminations = row_values
-        table_data.append(f"{step}: {mode} - {submode} - {main_param} - {terminations}")
+                # Map the values to numeric codes
+                mode_code, submode_code, param_code, termination_codes = map_mode_submode_param(mode, submode, parameter, terminations)
 
-    data_string = "\n".join(table_data)
-    send_data_to_serial(data_string)
-    print(f"Data sent to serial: \n{data_string}")
+                # Construct message
+                message = f"{mode_code},{submode_code},{param_code},{parameter}," + ",".join(termination_codes)
+                
+                # Send the message
+                ser.write(message.encode())
+                time.sleep(0.5)  # Wait a bit between messages
 
+            ser.close()
+        except serial.SerialException as e:
+            print(f"Error opening serial port: {e}")
+
+
+def get_serial_ports():
+    ports = serial.tools.list_ports.comports()
+    return [port.device for port in ports]
+
+# Creating the main application window
 root = tk.Tk()
-root.title("Step Selector")
+root.title("Battery Testing Sequence")
 
-# Variables
+# Mode Selection
 mode_var = tk.StringVar()
+mode_label = ttk.Label(root, text="Mode:")
+mode_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
+mode_menu = ttk.OptionMenu(root, mode_var, "", "Charge", "DisCharge", "Rest", command=on_mode_select)
+mode_menu.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
+# Submode Selection
 submode_var = tk.StringVar()
-edit_mode = tk.BooleanVar(value=False)
+submode_label = ttk.Label(root, text="Submode:")
+submode_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
+submode_menu = ttk.OptionMenu(root, submode_var, "", "Submode")
+submode_menu.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 
-# Modes
-modes = ["Charge", "DisCharge", "Rest"]
-mode_frame = ttk.LabelFrame(root, text="Mode")
-mode_frame.grid(row=0, column=0, padx=5, pady=5)
-for mode in modes:
-    ttk.Radiobutton(mode_frame, text=mode, variable=mode_var, value=mode, command=lambda m=mode: on_mode_select(m)).pack(anchor=tk.W)
-
-# Submode
-submode_label = ttk.Label(root, text="SubMode:")
-submode_label.grid(row=1, column=0, padx=5, pady=5)
-submode_menu = ttk.OptionMenu(root, submode_var, "", "")
-submode_menu.grid(row=1, column=1, padx=5, pady=5)
-
-# Main parameter entry
+# Main Parameter Input
 main_parameter_label = ttk.Label(root, text="Main Parameter:")
-main_parameter_label.grid(row=2, column=0, padx=5, pady=5)
+main_parameter_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
 main_parameter_entry = ttk.Entry(root)
-main_parameter_entry.grid(row=2, column=1, padx=5, pady=5)
+main_parameter_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
 main_parameter_entry.bind("<KeyRelease>", check_add_button_state)
 
-# Termination parameters
-termination_frame = ttk.LabelFrame(root, text="Termination Parameters")
-
+# Termination Parameters
+termination_frame = ttk.Frame(root)
 termination1_var = tk.StringVar()
 termination1_label = ttk.Label(termination_frame, text="Termination 1:")
-termination1_label.grid(row=0, column=0, padx=5, pady=5)
+termination1_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 termination1_entry = ttk.Entry(termination_frame)
-termination1_entry.grid(row=0, column=1, padx=5, pady=5)
-termination1_unit = ttk.Label(termination_frame, text="")
-termination1_unit.grid(row=0, column=2, padx=5, pady=5)
+termination1_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+termination1_unit = ttk.Label(termination_frame, text="Unit")
+termination1_unit.grid(row=0, column=2, padx=5, pady=5, sticky="w")
 
 termination2_var = tk.StringVar()
 termination2_label = ttk.Label(termination_frame, text="Termination 2:")
-termination2_label.grid(row=1, column=0, padx=5, pady=5)
+termination2_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
 termination2_entry = ttk.Entry(termination_frame)
-termination2_entry.grid(row=1, column=1, padx=5, pady=5)
-termination2_unit = ttk.Label(termination_frame, text="")
-termination2_unit.grid(row=1, column=2, padx=5, pady=5)
+termination2_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+termination2_unit = ttk.Label(termination_frame, text="Unit")
+termination2_unit.grid(row=1, column=2, padx=5, pady=5, sticky="w")
 
 termination3_var = tk.StringVar()
 termination3_label = ttk.Label(termination_frame, text="Termination 3:")
-termination3_label.grid(row=2, column=0, padx=5, pady=5)
+termination3_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
 termination3_entry = ttk.Entry(termination_frame)
-termination3_entry.grid(row=2, column=1, padx=5, pady=5)
-termination3_unit = ttk.Label(termination_frame, text="")
-termination3_unit.grid(row=2, column=2, padx=5, pady=5)
+termination3_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
+termination3_unit = ttk.Label(termination_frame, text="Unit")
+termination3_unit.grid(row=2, column=2, padx=5, pady=5, sticky="w")
 
-# Table
-columns = ("Step", "Mode", "SubMode", "Main Parameter", "Termination Parameters")
-table = ttk.Treeview(root, columns=columns, show="headings")
-for col in columns:
+# Add and Reset buttons
+button_frame = ttk.Frame(root)
+button_frame.grid(row=4, column=0, columnspan=4, padx=5, pady=5)
+
+add_button = ttk.Button(button_frame, text="Add", command=add_selection)
+add_button.grid(row=0, column=0, padx=5, pady=5)
+add_button.config(state=tk.DISABLED)
+
+remove_button = ttk.Button(button_frame, text="Remove", command=remove_selection)
+remove_button.grid(row=0, column=1, padx=5, pady=5)
+
+edit_button = ttk.Button(button_frame, text="Edit", command=edit_selection)
+edit_button.grid(row=0, column=2, padx=5, pady=5)
+
+reset_button = ttk.Button(button_frame, text="Reset", command=reset_form)
+reset_button.grid(row=0, column=3, padx=5, pady=5)
+
+# Edit mode flag
+edit_mode = tk.BooleanVar(value=False)
+
+# Sequence Table
+table_frame = ttk.Frame(root)
+table_frame.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
+
+table_columns = ("Step", "Mode", "Submode", "Main Parameter", "Termination Parameters")
+table = ttk.Treeview(table_frame, columns=table_columns, show="headings", height=10)
+table.grid(row=0, column=0, sticky="nsew")
+
+for col in table_columns:
     table.heading(col, text=col)
-table.grid(row=4, column=0, columnspan=4, padx=5, pady=5)
+    table.column(col, width=100)
 
-# Styling for selected row
-table.tag_configure('selected', background='lightblue')
+scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=table.yview)
+table.configure(yscroll=scrollbar.set)
+scrollbar.grid(row=0, column=1, sticky="ns")
 
-# Add Button
-add_button = ttk.Button(root, text="Add", command=add_selection, state=tk.DISABLED)
-add_button.grid(row=5, column=0, padx=5, pady=5)
+# Serial Communication
+serial_frame = ttk.LabelFrame(root, text="Serial Communication")
+serial_frame.grid(row=6, column=0, columnspan=4, padx=5, pady=5, sticky="ew")
 
-# Edit Button
-edit_button = ttk.Button(root, text="Edit", command=edit_selection)
-edit_button.grid(row=5, column=1, padx=5, pady=5)
+port_label = ttk.Label(serial_frame, text="Port:")
+port_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 
-# Remove Button
-remove_button = ttk.Button(root, text="Remove", command=remove_selection)
-remove_button.grid(row=5, column=2, padx=5, pady=5)
+port_combobox = ttk.Combobox(serial_frame, values=get_serial_ports())
+port_combobox.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
-# Reset Button
-reset_button = ttk.Button(root, text="Reset", command=clear_table)
-reset_button.grid(row=5, column=3, padx=5, pady=5)
+baudrate_label = ttk.Label(serial_frame, text="Baudrate:")
+baudrate_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
 
-# Send to Serial Button
-send_button = ttk.Button(root, text="Send to Serial", command=send_table_data)
-send_button.grid(row=6, column=1, columnspan=2, padx=5, pady=5)
+baudrate_var = tk.StringVar(value="9600")
+baudrate_combobox = ttk.Combobox(serial_frame, textvariable=baudrate_var, values=["9600", "19200", "38400", "57600", "115200"])
+baudrate_combobox.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+
+send_button = ttk.Button(serial_frame, text="Send", command=send_to_serial)
+send_button.grid(row=0, column=4, padx=5, pady=5)
 
 root.mainloop()
