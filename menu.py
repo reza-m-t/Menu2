@@ -123,9 +123,9 @@ def update_termination_parameters(mode, submode):
             termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Voltage (mV)", "mV")]
     elif mode == "DisCharge":
         if submode == "CC":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mA")]
+            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Voltage (mV)", "mA")]
         elif submode == "CV":
-            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Voltage (mV)", "mV")]
+            termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mV")]
         elif submode == "CL" or submode == "CP":
             termination_options = [("Time (min)", "min"), ("Temp (C)", "C"), ("Current (mA)", "mA"), ("Voltage (mV)", "mV")]
     elif mode == "Rest":
@@ -246,49 +246,78 @@ def reset_form():
     check_add_button_state()
 
 def map_mode_submode_param(mode, submode, param, termination_list):
+    # Define map for mode
     mode_map = {
         "Charge": "1",
         "DisCharge": "2",
         "Rest": "3"
     }
+    
+    # Define map for submode
     submode_map = {
         "CC": {"Charge": "1", "DisCharge": "3"},
         "CV": {"Charge": "2", "DisCharge": "4"},
-        "CP": "5",
+        "CP": {"Charge": "5", "DisCharge": "6"},
         "CL": "6",
         "Rest": "7"
     }
-    param_map = {
-        "Voltage": "1",
-        "Time": "2",
-        "Temp": "3",
-        "Current": "4",
-        "Resistance": "17",
-        "Power": "13",
-    }
-    termination_map = {
-        "Time (min)": "2",
-        "Temp (C)": "3",
-        "Current (mA)": "4",
-        "Voltage (mV)": "1",
-        "Resistance (ohm)": "17",
-        "Power (Watt)": "13",
-    }
+    
+    # Define map for terminations based on the combination of mode and submode
+    termination_map = {}
+    if mode == "Charge":
+        if submode == "CC":
+            termination_map = {
+                "Voltage (mV)": "1",
+                "Time (min)": "2",
+                "Temp (C)": "3",
+            }
+        elif submode == "CV":
+            termination_map = {
+                "Current (mA)": "4",
+                "Time (min)": "5",
+                "Temp (C)": "6",
+            }
+        elif submode == "CP":
+            termination_map = {
+                "Voltage (mV)": "13",
+                "Current (mA)": "14",
+                "Time (min)": "15",
+                "Temp (C)": "16",
+            }
+    elif mode == "DisCharge":
+        if submode == "CC":
+            termination_map = {
+                "Voltage (mV)": "7",
+                "Time (min)": "8",
+                "Temp (C)": "9",
+            }
+        elif submode == "CV":
+            termination_map = {
+                "Current (mA)": "10",
+                "Time (min)": "11",
+                "Temp (C)": "12",
+            }
+        elif submode == "CP":
+            termination_map = {
+                "Voltage (mV)": "17",
+                "Current (mA)": "18",
+                "Time (min)": "19",
+                "Temp (C)": "20",
+            }
+    elif mode == "Rest":
+        termination_map = {
+            "Current (mA)": "21",
+            "Time (min)": "22",
+            "Temp (C)": "23",
+        }
 
-    # Map mode
+    # Mapping mode, submode, and terminations
     mode_code = mode_map.get(mode, "0")
-
-    # Map submode based on mode
     submode_code = submode_map.get(submode, {}).get(mode, submode_map.get(submode, "0"))
+    
+    termination_codes = [(termination_map.get(term.split(" = ")[0], "0"), term.split(" = ")[1]) for term in termination_list]
 
-    # Map main parameter based on the label
-    param_label = main_parameter_label.cget("text").split()[0]  # Get the text before the "("
-    param_code = param_map.get(param_label, "0")
-
-    # Map termination parameters
-    termination_codes = [termination_map.get(term.split(" = ")[0], "0") for term in termination_list]
-
-    return mode_code, submode_code, param_code, termination_codes
+    return mode_code, submode_code, termination_codes
 
 
 def send_to_serial():
@@ -308,10 +337,11 @@ def send_to_serial():
                 terminations = values[4].split(", ")
 
                 # Map the values to numeric codes
-                mode_code, submode_code, param_code, termination_codes = map_mode_submode_param(mode, submode, parameter, terminations)
+                mode_code, submode_code, termination_codes = map_mode_submode_param(mode, submode, parameter, terminations)
 
                 # Construct message
-                message = f"{mode_code},{submode_code},{param_code},{parameter}," + ",".join(termination_codes)
+                termination_messages = [f"{code},{value}" for code, value in termination_codes]
+                message = f"{mode_code},{submode_code},{parameter}," + ",".join(termination_messages)
                 
                 # Send the message
                 ser.write(message.encode())
@@ -320,6 +350,9 @@ def send_to_serial():
             ser.close()
         except serial.SerialException as e:
             print(f"Error opening serial port: {e}")
+
+
+
 
 
 def get_serial_ports():
