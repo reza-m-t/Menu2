@@ -3,9 +3,9 @@ from tkinter import ttk
 import serial
 import serial.tools.list_ports
 import time
-
-from PIL import Image, ImageTk
-
+import openpyxl
+import os
+from tkinter import filedialog
 
 # Global variable to keep track of the step number
 step_number = 1
@@ -34,7 +34,7 @@ def add_selection():
         if not termination_params:
             termination_params.append("No Termination Parameters")
 
-        termination_values = ", ".join(termination_params)
+        termination_values = " or ".join(termination_params)
         if selected_mode == "Rest":
             main_parameter_value = "Rest"
             main_parameter_unit = ""
@@ -218,7 +218,7 @@ def edit_selection():
             main_parameter_entry.delete(0, tk.END)
             main_parameter_entry.insert(0, main_param_value)
 
-        termination_values = current_values[4].split(", ")
+        termination_values = current_values[4].split(" or ")
         for termination_value in termination_values:
             key_value = termination_value.split(" = ")
             if key_value[0] == termination1_var.get():
@@ -363,10 +363,86 @@ def get_serial_ports():
     return [port.device for port in ports]
 
 
+# Function to save data to a text file
+def save_to_txt(file_path):
+    with open(file_path, 'w') as file:
+        for row in table.get_children():
+            values = table.item(row, 'values')
+            line = '\t'.join(values) + '\n'
+            file.write(line)
+
+# Function to open data from a text file
+def open_from_txt(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        table.delete(*table.get_children())  # Clear existing data
+        
+        for line in lines:
+            values = line.strip().split('\t')
+            if len(values) == len(table_columns):
+                table.insert('', tk.END, values=values)
+
+# Function to save data to an Excel file (excluding header)
+def save_to_excel(file_path):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Sheet1"
+    
+    # Write rows (excluding header)
+    for row in table.get_children():
+        values = table.item(row, 'values')
+        sheet.append(values)
+    
+    workbook.save(file_path)
+
+# Function to open data from an Excel file
+def open_from_excel(file_path):
+    workbook = openpyxl.load_workbook(file_path)
+    sheet = workbook.active
+    
+    table.delete(*table.get_children())  # Clear existing data
+    
+    for row in sheet.iter_rows(values_only=True):
+        if row:  # Make sure the row is not empty
+            table.insert('', tk.END, values=row)
+
+# Function to handle save file dialog
+def save_file_dialog():
+    file_type = [('Text files', '*.txt'), ('Excel files', '*.xlsx')]
+    file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=file_type)
+    
+    if file_path:
+        if file_path.endswith('.txt'):
+            save_to_txt(file_path)
+        elif file_path.endswith('.xlsx'):
+            save_to_excel(file_path)
+
+# Function to handle open file dialog
+def open_file_dialog():
+    file_type = [('Text files', '*.txt'), ('Excel files', '*.xlsx')]
+    file_path = filedialog.askopenfilename(filetypes=file_type)
+    
+    if file_path:
+        if file_path.endswith('.txt'):
+            open_from_txt(file_path)
+        elif file_path.endswith('.xlsx'):
+            open_from_excel(file_path)
+
+
 # Creating the main application window
 root = tk.Tk()
 root.title("Battery Testing Sequence")
 
+# Create Menu Bar
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+# Create File Menu
+file_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="File", menu=file_menu)
+
+file_menu.add_command(label="Save", command=lambda: save_file_dialog())
+file_menu.add_command(label="Open", command=lambda: open_file_dialog())
 # Mode Selection
 mode_var = tk.StringVar()
 mode_label = ttk.Label(root, text="Mode:")
