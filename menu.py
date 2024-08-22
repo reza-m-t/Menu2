@@ -6,6 +6,7 @@ import time
 import openpyxl
 import os
 from tkinter import filedialog
+from tkinter import ttk
 
 # Global variable to keep track of the step number
 step_number = 1
@@ -356,8 +357,6 @@ def send_to_serial():
 
 
 
-
-
 def get_serial_ports():
     ports = serial.tools.list_ports.comports()
     return [port.device for port in ports]
@@ -433,6 +432,18 @@ def open_file_dialog():
 root = tk.Tk()
 root.title("Battery Testing Sequence")
 
+# Create Notebook widget
+notebook = ttk.Notebook(root)
+notebook.grid(row=0, column=0, sticky="nsew")
+
+# Create first tab for the existing functionality
+tab1 = ttk.Frame(notebook)
+notebook.add(tab1, text="Main Interface")
+
+# Create second tab for displaying a message
+tab2 = ttk.Frame(notebook)
+notebook.add(tab2, text="Message")
+
 # Create Menu Bar
 menu_bar = tk.Menu(root)
 root.config(menu=menu_bar)
@@ -445,27 +456,27 @@ file_menu.add_command(label="Save", command=lambda: save_file_dialog())
 file_menu.add_command(label="Open", command=lambda: open_file_dialog())
 # Mode Selection
 mode_var = tk.StringVar()
-mode_label = ttk.Label(root, text="Mode:")
-mode_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
-mode_menu = ttk.OptionMenu(root, mode_var, "", "Charge", "DisCharge", "Rest", command=on_mode_select)
+mode_label = ttk.Label(tab1, text="Mode:")
+mode_label.grid(row=0, column=0, padx=5, pady=0, sticky="e")
+mode_menu = ttk.OptionMenu(tab1, mode_var, "", "Charge", "DisCharge", "Rest", command=on_mode_select)
 mode_menu.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
 # Submode Selection
 submode_var = tk.StringVar()
-submode_label = ttk.Label(root, text="Submode:")
+submode_label = ttk.Label(tab1, text="Submode:")
 submode_label.grid(row=0, column=2, padx=5, pady=5, sticky="e")
-submode_menu = ttk.OptionMenu(root, submode_var, "", "Submode")
+submode_menu = ttk.OptionMenu(tab1, submode_var, "", "Submode")
 submode_menu.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 
 # Main Parameter Input
-main_parameter_label = ttk.Label(root, text="Main Parameter:")
+main_parameter_label = ttk.Label(tab1, text="Main Parameter:")
 main_parameter_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
-main_parameter_entry = ttk.Entry(root)
+main_parameter_entry = ttk.Entry(tab1)
 main_parameter_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
 main_parameter_entry.bind("<KeyRelease>", check_add_button_state)
 
 # Termination Parameters
-termination_frame = ttk.Frame(root)
+termination_frame = ttk.Frame(tab1)
 termination1_var = tk.StringVar()
 termination1_label = ttk.Label(termination_frame, text="Termination 1:")
 termination1_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
@@ -491,7 +502,7 @@ termination3_unit = ttk.Label(termination_frame, text="Unit")
 termination3_unit.grid(row=2, column=2, padx=5, pady=5, sticky="w")
 
 # Add and Reset buttons
-button_frame = ttk.Frame(root)
+button_frame = ttk.Frame(tab1)
 button_frame.grid(row=4, column=0, columnspan=4, padx=5, pady=5)
 
 add_button = ttk.Button(button_frame, text="Add", command=add_selection)
@@ -511,7 +522,7 @@ reset_button.grid(row=0, column=3, padx=5, pady=5)
 edit_mode = tk.BooleanVar(value=False)
 
 # Sequence Table
-table_frame = ttk.Frame(root)
+table_frame = ttk.Frame(tab1)
 table_frame.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
 
 table_columns = ("Step", "Mode", "Submode", "Main Parameter", "Termination Parameters")
@@ -527,7 +538,7 @@ table.configure(yscroll=scrollbar.set)
 scrollbar.grid(row=0, column=1, sticky="ns")
 
 # Serial Communication
-serial_frame = ttk.LabelFrame(root, text="Serial Communication")
+serial_frame = ttk.LabelFrame(tab2, text="Serial Communication")
 serial_frame.grid(row=6, column=0, columnspan=4, padx=5, pady=5, sticky="ew")
 
 port_label = ttk.Label(serial_frame, text="Port:")
@@ -588,7 +599,7 @@ style.configure("TEntry",
                 foreground="black")
 
 # Sequence Table
-table_frame = ttk.Frame(root)
+table_frame = ttk.Frame(tab1)
 table_frame.grid(row=5, column=0, columnspan=4, padx=300, pady=10, sticky="nsew")
 
 table_columns = ("Step", "Mode", "Submode", "Main Parameter", "Termination Parameters")
