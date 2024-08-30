@@ -13,6 +13,7 @@ step_number = 1
 
 def add_selection():
     global step_number
+
     selected_mode = mode_var.get()
     selected_submode = submode_var.get()
     main_parameter_value = main_parameter_entry.get()
@@ -21,7 +22,7 @@ def add_selection():
     if selected_mode and (selected_submode or selected_mode == "Rest"):
         if selected_mode != "Rest" and not main_parameter_value:
             return  # Do not add if there's no input for main parameter when required
-        
+
         # Gather termination parameters
         termination_params = []
         if termination1_var.get() and termination1_entry.get():
@@ -31,7 +32,6 @@ def add_selection():
         if termination3_var.get() and termination3_entry.get():
             termination_params.append(f"{termination3_var.get()} = {termination3_entry.get()}")
 
-        # Add a default value of 0 if no termination parameters were entered
         if not termination_params:
             termination_params.append("No Termination Parameters")
 
@@ -42,6 +42,7 @@ def add_selection():
         else:
             main_parameter_unit = main_parameter_label.cget("text").split("(")[-1][:-1]  # Extract the unit
 
+        # Check if we are in edit mode
         if edit_mode.get():
             # Edit existing row
             selected_item = table.selection()[0]
@@ -49,15 +50,39 @@ def add_selection():
             edit_mode.set(False)
             add_button.config(text="Add")
         else:
-            # Insert into table
-            table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode, f"{main_parameter_value} {main_parameter_unit}", termination_values))
-            step_number += 1  # Increment the step number
+            # Get selected item
+            selected_item = table.selection()
+            
+            if selected_item:
+                selected_index = table.index(selected_item[0])
+                
+                # Add the new row after the selected row
+                new_step_number = step_number
+                step_number += 1
+                new_row_values = (f"Step {new_step_number}", selected_mode, selected_submode, f"{main_parameter_value} {main_parameter_unit}", termination_values)
+                
+                # Insert the new row at the position after the selected row
+                table.insert('', selected_index + 1, values=new_row_values)
+                
+                # Update step numbers of all subsequent rows
+                for i, item in enumerate(table.get_children()[selected_index + 1:]):
+                    table.item(item, values=(f"Step {selected_index + 2 + i}",) + table.item(item, 'values')[1:])
+                
+            else:
+                # Insert into table
+                table.insert('', tk.END, values=(f"Step {step_number}", selected_mode, selected_submode, f"{main_parameter_value} {main_parameter_unit}", termination_values))
+                step_number += 1  # Increment the step number
 
         # Clear input fields after adding
         main_parameter_entry.delete(0, tk.END)
         termination1_entry.delete(0, tk.END)
         termination2_entry.delete(0, tk.END)
         termination3_entry.delete(0, tk.END)
+
+        # Reset selection and button text
+        table.selection_remove(table.selection())  # Remove selection
+        edit_mode.set(False)
+        add_button.config(text="Add")
 
     check_add_button_state()
 
@@ -432,6 +457,7 @@ def open_file_dialog():
 root = tk.Tk()
 root.title("Battery Testing Sequence")
 
+
 # Create Notebook widget
 notebook = ttk.Notebook(root)
 notebook.grid(row=0, column=0, sticky="nsew")
@@ -557,6 +583,27 @@ baudrate_combobox.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 send_button = ttk.Button(serial_frame, text="Send", command=send_to_serial)
 send_button.grid(row=0, column=4, padx=5, pady=5)
 
+def validate_numeric_input(value):
+    # Check if the value is numeric
+    return value.isdigit() or value == ""
+
+# Creating the validation command
+vcmd = (root.register(validate_numeric_input), '%P')
+
+# Main Parameter Input
+main_parameter_entry = ttk.Entry(tab1, validate="key", validatecommand=vcmd)
+main_parameter_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+main_parameter_entry.bind("<KeyRelease>", check_add_button_state)
+
+# Termination Parameters
+termination1_entry = ttk.Entry(termination_frame, validate="key", validatecommand=vcmd)
+termination1_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+termination2_entry = ttk.Entry(termination_frame, validate="key", validatecommand=vcmd)
+termination2_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+termination3_entry = ttk.Entry(termination_frame, validate="key", validatecommand=vcmd)
+termination3_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
+
+
 # Create a style object
 style = ttk.Style()
 
@@ -611,7 +658,7 @@ table.heading("Step", text="Step")
 table.column("Step", anchor=tk.CENTER, width=80)
 
 table.heading("Mode", text="Mode")
-table.column("Mode", anchor=tk.CENTER, width=80)
+table.column("Mode", anchor=tk.CENTER, width=90)
 
 table.heading("Submode", text="Submode")
 table.column("Submode", anchor=tk.CENTER, width=100)
@@ -631,4 +678,5 @@ scrollbar.grid(row=0, column=1, sticky="ns")
 h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=table.xview)
 table.configure(xscroll=h_scrollbar.set)
 h_scrollbar.grid(row=1, column=0, sticky="ew")
+
 root.mainloop()
