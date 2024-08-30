@@ -636,13 +636,13 @@ style.configure("TButton",
 style.configure("TLabel",
                 font=('Helvetica', 12),
                 padding=1,
-                background="#FFD700",
+                background="#7FFF00",
                 foreground="black")
 
 style.configure("TEntry",
                 font=('Helvetica', 12),
                 padding=5,
-                background="#FFD700",
+                background="#7FFF00",
                 foreground="black")
 
 # Sequence Table
@@ -678,5 +678,6 @@ scrollbar.grid(row=0, column=1, sticky="ns")
 h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=table.xview)
 table.configure(xscroll=h_scrollbar.set)
 h_scrollbar.grid(row=1, column=0, sticky="ew")
+
 
 root.mainloop()
