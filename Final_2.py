@@ -11,6 +11,11 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from collections import deque
 from datetime import datetime
+import webbrowser
+from tkcalendar import DateEntry
+import pandas as pd
+from tkinter import Toplevel, filedialog, messagebox
+import matplotlib.pyplot as plt
 
 # Global variables
 step_number = 1
@@ -35,6 +40,16 @@ powers = deque(maxlen=100)
 start_time = time.time()
 workbook = None
 sheet = None
+
+# Function to update the current date and time display
+def update_time():
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    time_label.config(text=f"Current Date and Time: {current_time}")
+    root.after(1000, update_time)  # Update time every second
+
+# Function to open a website in the default web browser
+def open_website():
+    webbrowser.open("https://www.digikala.com/")  # Replace with the actual URL
 
 def add_selection():
     global step_number
@@ -726,6 +741,9 @@ def stop_serial():
     update_status
 
 
+def close_window():
+    root.destroy()  # Close the window immediately
+
 # Creating the main application window
 root = tk.Tk()
 root.title("Battery Testing Sequence")
@@ -738,9 +756,13 @@ notebook.grid(row=0, column=0, sticky="nsew")
 tab1 = ttk.Frame(notebook)
 notebook.add(tab1, text="Main Interface")
 
-# Create second tab for displaying a message
+# Create second tab for displaying a Data
 tab2 = ttk.Frame(notebook)
 notebook.add(tab2, text="Plot Data")
+
+# Create third tab for plot perives Data
+tab3 = ttk.Frame(notebook)
+notebook.add(tab3, text="Perives Data")
 
 # Create Menu Bar
 menu_bar = tk.Menu(root)
@@ -763,6 +785,13 @@ root.bind_all("<Control-o>", lambda event: open_file_dialog())
 root.bind_all("<Control-c>", lambda event: find_port())
 root.bind_all("<Control-p>", lambda event: select_save_path())
 root.bind_all("<Control-x>", lambda event: root.quit())
+
+
+# Create About Us Menu
+about_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="About Us", menu=about_menu)
+about_menu.add_command(label="Visit Our Website", command=open_website)  # Open the website when clicked
+
 
 # Mode Selection
 mode_var = tk.StringVar()
@@ -944,14 +973,12 @@ h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=table.xvie
 table.configure(xscroll=h_scrollbar.set)
 h_scrollbar.grid(row=1, column=0, sticky="ew")
 
-# Plot Data ---------------------------------
+# Plot Data ------------------------------------------------------------------------------------------------------------
 root.configure(bg="#f0f0f0")
 root.option_add("*Font", "Verdana 10")
 root.option_add("*Background", "#f0f0f0")
 root.option_add("*Button.Background", "#ffffff")
 root.option_add("*Button.Foreground", "#333333")
-
-
 
 checkbox_frame = tk.Frame(tab2, bg="#e0e0e0", bd=2, relief=tk.RIDGE)
 checkbox_frame.grid(row=0, column=0, pady=10, padx=10, sticky="ew")
@@ -982,5 +1009,134 @@ tab2.grid_columnconfigure(0, weight=1)
 
 start_serial()
 set_port(final_port)
-root.protocol("WM_DELETE_WINDOW", stop_serial)
+root.protocol("WM_DELETE_WINDOW", close_window)
+
+#Perives Dta ploting ---------------------------------------------------------------------------------------------------
+
+# Centering the main frame
+main_frame = tk.Frame(tab3, padx=20, pady=20, relief="raised", borderwidth=2)
+main_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+# Variable to store the selected file path
+file_path = ""
+
+
+# Function to open a file dialog and select the Excel file
+def select_file():
+    global file_path
+    file_path = filedialog.askopenfilename(
+        title="Select Excel File",
+        filetypes=[("Excel files", "*.xlsx *.xls")]
+    )
+    if file_path:
+        load_excel_data()
+
+
+# Function to load the Excel file and create checkboxes for each data column
+def load_excel_data():
+    global df
+    global checkbox_vars
+    df = pd.read_excel(file_path)
+    columns = df.columns[2:]  # Assuming the first two columns are Time (s) and Seconde
+
+    checkbox_frame = tk.Frame(main_frame, padx=10, pady=10)
+    checkbox_frame.grid(row=5, column=0, pady=10, columnspan=2)
+
+    checkbox_vars = []
+    for col in columns:
+        var = tk.BooleanVar()
+        checkbox = tk.Checkbutton(checkbox_frame, text=col, variable=var)
+        checkbox.pack(anchor='w')
+        checkbox_vars.append((col, var))
+
+
+# Date picker
+tk.Label(main_frame, text="Select Date:", font=("Arial", 12)).grid(row=1, column=0, padx=10, pady=10, sticky='e')
+cal = DateEntry(main_frame, width=12, year=2024, month=8, day=31, background='darkgreen', foreground='black',
+                borderwidth=2)
+cal.grid(row=1, column=1, padx=10, pady=10, sticky='w')
+
+# Hour input
+tk.Label(main_frame, text="Select Hour (0-23):", font=("Arial", 12)).grid(row=2, column=0, padx=10, pady=10, sticky='e')
+hour_var = tk.StringVar(value="21")
+tk.Entry(main_frame, textvariable=hour_var, width=3).grid(row=2, column=1, padx=10, pady=10, sticky='w')
+
+# Button to open file dialog
+select_file_button = tk.Button(main_frame, text="Select Excel File", command=select_file, font=("Arial", 12),
+                               bg='#4CAF50', fg='white', padx=10, pady=5)
+select_file_button.grid(row=0, column=0, padx=10, pady=20, columnspan=2)
+
+
+def save_plot(fig, col):
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
+    )
+    if file_path:
+        # Save with high resolution
+        fig.savefig(file_path, dpi=1000, bbox_inches='tight')
+        messagebox.showinfo("Save Plot", f"Plot of {col} saved successfully!")
+
+
+# Function to plot the data
+def plot_data():
+    selected_date = cal.get_date()
+    selected_hour = hour_var.get()
+    selected_datetime = datetime.combine(selected_date, datetime.strptime(selected_hour, "%H").time())
+
+    # Convert the 'Time (s)' column to datetime
+    df['Time (s)'] = pd.to_datetime(df['Time (s)'], format='%Y-%m-%d %H:%M:%S')
+
+    # Filter data based on the selected datetime
+    filtered_data = df[df['Time (s)'] >= selected_datetime]
+
+    # Select the specific columns where checkboxes are selected
+    selected_columns = [col for col, var in checkbox_vars if var.get()]
+
+    if not selected_columns or len(selected_columns) < 1:
+        messagebox.showerror("Selection Error", "Please select at least 1 data column.")
+        return
+
+    time_series = filtered_data['Seconde']  # 'Seconde' column as the x-axis
+
+    for col in selected_columns:
+        # Open a new window for each plot
+        plot_window = Toplevel(root)
+        plot_window.title(f"Plot of {col}")
+
+        # Adjusted the figure size and added additional parameters
+        fig, ax = plt.subplots(
+            figsize=(18, 6),  # Make the figure larger
+            dpi=100,  # Increase resolution for better quality
+            constrained_layout=True,  # Automatically adjust layout to prevent overlap
+            subplot_kw={'facecolor': '#ffffff'}  # Set the background color of the subplot
+        )
+
+        ax.plot(time_series, filtered_data[col.strip()], label=col.strip())
+
+        ax.set_title(f"Plot of {col} from {selected_datetime}")
+        ax.set_xlabel("Seconde")
+        ax.set_ylabel(col)
+        ax.legend()
+
+        # Display the plot in the new tkinter window
+        canvas = FigureCanvasTkAgg(fig, master=plot_window)
+        canvas.get_tk_widget().pack()
+        canvas.draw()
+
+        # Save button in the new window
+        save_button = tk.Button(plot_window, text="Save Plot as Image", command=lambda c=col: save_plot(fig, c),
+                                font=("Arial", 10), bg='#4CAF50', fg='white', padx=10, pady=5)
+        save_button.pack(pady=10)
+# Plot button
+plot_button = tk.Button(main_frame, text="Plot Data", command=plot_data, font=("Arial", 12), bg='#4CAF50', fg='white',
+                        padx=10, pady=5)
+plot_button.grid(row=4, column=0, padx=10, pady=20, columnspan=2)
+
+# Display current date and time
+time_label = tk.Label(main_frame, text="", font=("Arial", 12))
+time_label.grid(row=6, column=0, pady=10, columnspan=2)
+#update_time()
+
+
 root.mainloop()
